@@ -1,0 +1,111 @@
+pipeline {
+    agent any
+
+    environment {
+        
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    echo 'Building the code...'
+                    sh 'mvn clean install'
+                }
+            }
+        }
+
+        stage('Unit and Integration Tests') {
+            steps {
+                script {
+                    echo 'Running unit and integration tests...'
+                    sh 'mvn test'
+                }
+            }
+        }
+
+        stage('Code Analysis') {
+            steps {
+                script {
+                    echo 'Performing code analysis...'
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                script {
+                    echo 'Performing security scan...'
+                    sh 'dependency-check.sh --6.1C-Jenkins-with-Github --scan ./'
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            steps {
+                script {
+                    echo 'Deploying to staging server...'
+                    sh 'aws deploy pipeline-script.sh'
+                }
+            }
+        }
+
+        stage('Integration Tests on Staging') {
+            steps {
+                script {
+                    echo 'Running integration tests on staging environment...'
+                    sh 'run-staging-tests.sh'
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                script {
+                    echo 'Deploying to production server...'
+                    sh 'aws deploy your-production-deployment-script.sh'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo 'Cleaning up workspace...'
+                deleteDir()
+            }
+        }
+        success {
+            script {
+                echo 'Sending success email notification...'
+                emailext(
+                    to: 'sajidgoni04@gmail.com',
+                    subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
+                    body: """
+                        The Jenkins pipeline has completed successfully.
+                        - Build: SUCCESS
+                        - Details: ${env.BUILD_URL}
+                    """
+                )
+            }
+        }
+        failure {
+            script {
+                echo 'Sending failure email notification...'
+                emailext(
+                    to: 'your-email@example.com',
+                    subject: "Pipeline Failure: ${currentBuild.fullDisplayName}",
+                    body: """
+                        The Jenkins pipeline has failed.
+                        - Build: FAILURE
+                        - Details: ${env.BUILD_URL}
+                        - Logs: See attached log for details.
+                    """,
+                    attachLog: true
+                )
+            }
+        }
+    }
+}
